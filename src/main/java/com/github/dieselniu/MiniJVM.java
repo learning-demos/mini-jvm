@@ -3,6 +3,7 @@ package com.github.dieselniu;
 import com.github.zxh.classpy.classfile.ClassFile;
 import com.github.zxh.classpy.classfile.ClassFileParser;
 import com.github.zxh.classpy.classfile.MethodInfo;
+import com.github.zxh.classpy.classfile.bytecode.Instruction;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,10 +45,24 @@ public class MiniJVM {
 		Object[] localVariablesForMainStackFrame = new Object[methodInfo.getMaxStack()];
 		localVariablesForMainStackFrame[0] = null;
 
-		StackFrame mainStackFrame = new StackFrame(localVariablesForMainStackFrame, methodInfo);
+		methodStack.push(new StackFrame(localVariablesForMainStackFrame, methodInfo));
 
 
-
+		PCRegister pcRegister = new PCRegister(methodStack);
+		while (true) {
+			Instruction instruction = pcRegister.getNextInstruction();
+			if (instruction == null) {
+				break;
+			}
+			switch (instruction.getOpcode()) {
+				case getstatic:
+				case invokestatic:
+				case invokevirtual:
+				case _return:
+				default:
+					throw new IllegalStateException("Opcode" + instruction + " not implemented yet!");
+			}
+		}
 
 	}
 
@@ -68,11 +83,32 @@ public class MiniJVM {
 		}
 	}
 
+	static class PCRegister {
+		Stack<StackFrame> methodStack;
 
-	class StackFrame {
+		public PCRegister(Stack<StackFrame> methodStack) {
+			this.methodStack = methodStack;
+		}
+
+		public Instruction getNextInstruction() {
+			if (methodStack.isEmpty()) {
+				return null;
+			} else {
+				StackFrame frameAtTop = methodStack.peek();
+				return frameAtTop.getInstruction();
+			}
+		}
+	}
+
+	static class StackFrame {
 		Object[] localVariables;
 		Stack<Objects> operandStack;
 		MethodInfo methodInfo;
+		int currentInstructionIndex;
+
+		public Instruction getInstruction() {
+			return methodInfo.getCode().get(currentInstructionIndex++);
+		}
 
 		public StackFrame(Object[] localVariables, MethodInfo methodInfo) {
 			this.localVariables = localVariables;
